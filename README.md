@@ -1,5 +1,10 @@
 # Makefile for VHDL compilation and simulation
 
+## Quick start
+
+Copy this Makefile in the root directory of your VHDL project, put your VHDL source files under a subdirectory named `vhdl` and always use the `.vhd` extension.
+From the root directory of your VHDL project just type `make` to print the short help.
+
 ```
 Usage:
     make [GOAL] [VARIABLE=VALUE ...]
@@ -91,7 +96,7 @@ it means that `foo/bar.vhd` must be compiled in VHDL library `barlib` instead of
 
 ## The `local.mk` configuration file
 
-If `TOP` contains a local.mk file, it is included before anything else.
+If `TOP` contains a `local.mk` file, it is included before anything else.
 It can be used to define make variables with custom values.
 If `TOP/local.mk` exists and contains:
 
