@@ -33,8 +33,8 @@ include $(wildcard $(LOCAL))
 SIM			?= ghdl
 # GUI mode
 GUI			?= no
-# temporary working directory
-DIR			?= /tmp/$(USER)/$(PROJECT)/$(SIM)
+# temporary build directory
+DIR			?= /tmp/$(USER)/$(SIM)
 
 ifneq ($(GUI),yes)
 ifneq ($(GUI),no)
@@ -158,10 +158,10 @@ Examples:
     make foo_sim DIR=/tmp/mysim SIM=vsim V=1
     make foo_sim.sim DIR=/tmp/ghdl_sim SIM=ghdl GUI=yes
 
-Variable  domain             description (current value)
+Variable  valid values       description (current value)
     SIM   {ghdl,vsim,xsim}   simulation toolchain ($(SIM))
     GUI   {yes,no}           use Graphical User Interface ($(GUI))
-    DIR   -                  temporary compilation and simulation directory ($(DIR))
+    DIR   -                  temporary build directory ($(DIR))
     MODE  {work,dirname}     default target library for compilations ($(MODE))
     SKIP  -                  NAMEs to ignore for compilation ($(SKIP))
     V     {0,1}              verbosity level ($(V))
@@ -174,7 +174,7 @@ Goals:
     list           print list of all existing NAMEs not in SKIP
     all            compile all VHDL source files not in SKIP
     NAME.sim       simulate entity NAME
-    clean          delete temporary compilation and simulation directory
+    clean          delete temporary build directory
 endef
 export HELP_message
 
@@ -243,13 +243,13 @@ GUI  := yes
 SKIP := bogus gusbo
 V    := 1
 
-the temporary compilation and simulation directory is /home/joe/project, the
-default target library of compilations is work, the simulation toolchain is
-Modelsim, all simulations are run with the Graphical User Interface, the
-bogus.vhd and gusbo.vhd source files are ignored and the verbose mode is
-enabled. Variable assignments on the command line overwrite assignments in the
-local.mk file. If you know how to use GNU make you can add other make
-constructs to the local.mk (or to other .mk files).
+the temporary build directory is /home/joe/project, the default target library
+of compilations is work, the simulation toolchain is Modelsim, all simulations
+are run with the Graphical User Interface, the bogus.vhd and gusbo.vhd source
+files are ignored and the verbose mode is enabled. Variable assignments on the
+command line overwrite assignments in the local.mk file. If you know how to use
+GNU make you can add other make constructs to the local.mk (or to other .mk
+files).
 endef
 export LONG_HELP_message
 

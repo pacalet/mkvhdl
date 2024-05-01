@@ -13,10 +13,10 @@ Examples:
     make foo_sim DIR=/tmp/mysim SIM=vsim V=1
     make foo_sim.sim DIR=/tmp/ghdl_sim SIM=ghdl GUI=yes
 
-Variable  domain             description (current value)
+Variable  valid values       description (current value)
     SIM   {ghdl,vsim,xsim}   simulation toolchain (ghdl)
     GUI   {yes,no}           use Graphical User Interface (no)
-    DIR   -                  temporary compilation and simulation directory (/tmp/pacalet/mkvhdl/ghdl)
+    DIR   -                  temporary build directory (/tmp/joe/ghdl)
     MODE  {work,dirname}     default target library for compilations (work)
     SKIP  -                  NAMEs to ignore for compilation ()
     V     {0,1}              verbosity level (0)
@@ -29,7 +29,7 @@ Goals:
     list           print list of all existing NAMEs not in SKIP
     all            compile all VHDL source files not in SKIP
     NAME.sim       simulate entity NAME
-    clean          delete temporary compilation and simulation directory
+    clean          delete temporary build directory
 ```
 
 This Makefile uses several conventions that must absolutely be complied with.
@@ -109,7 +109,7 @@ SKIP := bogus gusbo
 V    := 1
 ```
 
-the temporary compilation and simulation directory is `/home/joe/project`, the default target library of compilations is `work`, the simulation toolchain is Modelsim, all simulations are run with the Graphical User Interface, the `bogus.vhd` and `gusbo.vhd` source files are ignored and the verbose mode is enabled.
+the temporary build directory is `/home/joe/project`, the default target library of compilations is `work`, the simulation toolchain is Modelsim, all simulations are run with the Graphical User Interface, the `bogus.vhd` and `gusbo.vhd` source files are ignored and the verbose mode is enabled.
 Variable assignments on the command line overwrite assignments in the `local.mk` file.
 If you know how to use GNU make you can add other make constructs to the `local.mk` (or to other `.mk` files).
 
