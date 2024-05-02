@@ -2,7 +2,7 @@
 
 ## Quick start
 
-Copy this Makefile in the root directory of your VHDL project, put your VHDL source files under a subdirectory named `vhdl` and always use the `.vhd` extension.
+Copy this Makefile in the root directory of your VHDL project, put your VHDL source files under a subdirectory named `vhdl` and always use the `.vhd` extension for your source files.
 From the root directory of your VHDL project just type `make` to print the short help.
 
 ```
@@ -13,104 +13,126 @@ Examples:
     make foo_sim DIR=/tmp/mysim SIM=vsim V=1
     make foo_sim.sim DIR=/tmp/ghdl_sim SIM=ghdl GUI=yes
 
-Variable  valid values       description (current value)
-    SIM   {ghdl,vsim,xsim}   simulation toolchain (ghdl)
-    GUI   {yes,no}           use Graphical User Interface (no)
-    DIR   -                  temporary build directory (/tmp/joe/ghdl)
-    MODE  {work,dirname}     default target library for compilations (work)
-    SKIP  -                  NAMEs to ignore for compilation ()
-    V     {0,1}              verbosity level (0)
+Variable    valid values    description (current value)
+    DIR     -               temporary build directory (/tmp/joe/mkvhdl/ghdl)
+    GUI     yes|no          use Graphical User Interface (no)
+    MODE    work|dirname    default target library (work)
+    SIM     ghdl|vsim|xsim  simulation toolchain (ghdl)
+    SKIP    -               NAMEs to ignore for compilation ()
+    V       0|1             verbosity level (0)
+    VHDL    -               absolute path of source files root directory (/home/joe/mkvhdl/vhdl)
 
 Goals:
-    help           print this short help message (default goal)
-    long-help      print the long help message
-    lib            print the list of libraries and their associated directory
-    NAME           compile VHDL source file NAME.vhd
-    list           print list of all existing NAMEs not in SKIP
-    all            compile all VHDL source files not in SKIP
-    NAME.sim       simulate entity NAME
-    clean          delete temporary build directory
+    help                    this help (default goal)
+    long-help               print long help
+    lib                     print library names / directories
+    NAME                    compile NAME.vhd
+    list                    print existing NAMEs not in SKIP
+    all                     compile all source files not in SKIP
+    NAME.sim                simulate NAME
+    clean                   delete temporary build directory
 ```
 
-This Makefile uses several conventions that must absolutely be complied with.
-If for any reason you cannot comply with these conventions, do not use this Makefile.
-The conventions are the following.
+This Makefile uses conventions; if your project is not compatible with the
+conventions, please do not use this Makefile.
 
-## The `TOP` directory
+1. The directory containing this Makefile is the `TOP` directory. All make
+   commands must be launched from `TOP`:
 
-The directory containing this Makefile is the `TOP` directory.
-All make commands must be launched from `TOP`.
+    ```
+    cd TOP; make ...
+    ```
 
-## VHDL source files
+   or:
 
-VHDL source files must be stored under `TOP/vhdl` and named `NAME.vhd` where `NAME` is any combination of alphanumeric characters, plus underscore (no spaces, for instance).
+    ```
+    make -C TOP ...
+    ```
 
-## Target libraries
+2. The directory containing the source files is the `VHDL` directory. All source
+   files must be stored in the VHDL directory or its subdirectories and named
+   `NAME.vhd` where `NAME` is any combination of alphanumeric characters, plus
+   underscores (no spaces or tabs, for instance).
 
-Each VHDL source file has a default target library in which it is compiled.
-If `MODE=work` this default target library is `work`.
-If `MODE=dirname` it is the library with the same name as the directory of the source file.
-The target library is automatically created if it does not exist yet.
+3. Each source file has a default target library: `work` if `MODE=work`, or the
+   name of the directory of the source file if `MODE=dirname`. Target libraries are
+   automatically created if they don't exist.
 
-## Uniqueness of VHDL source file names
+4. Source file names must be unique. It is not possible to have a
+   `VHDL/core/version.vhd` and a `VHDL/interconnect/version.vhd`.
 
-VHDL source file names must be unique.
-It is not possible to have a `TOP/vhdl/bar/foo.vhd` and a `TOP/vhdl/qux/foo.vhd`.
+5. The `NAME.sim` simulation goal simulates entity `NAME` defined in file `NAME.vhd`.
+   If you want to use this Makefile to launch simulations, name the source file of
+   your simulation environment according its entity name. Example: if the entity
+   of a simulation environment is `arbiter_bench`, name its source file
+   `arbiter_bench.vhd` and launch the simulation with:
 
-## Simulation environments
+    ```
+    make arbiter_bench.sim [VAR=VALUE...]
+    ```
 
-The `NAME.sim` simulation goals assume that the entity to simulate is `NAME` and that it is defined in file `NAME.vhd`.
-If you want to use this Makefile to launch simulations, name the VHDL source files of your simulation environments according their entity names.
-Example: if the entity of a simulation environment is `foo_sim`, name its VHDL source file `foo_sim.vhd` and launch the simulation with:
+   Note that the simulations are launched from the `DIR` temporary build directory.
+   If can matter if, for instance, a simulation environment reads or writes data
+   files.
 
-```
-make foo_sim.sim [VAR=VALUE...]
-```
+6. Inter-file dependencies must be declared in text files with the `.mk`
+   extension and stored in `VHDL` or its subdirectories. The dependency syntax is:
 
-## Dependencies
+    ```
+    NAME1 NAME2...: DEPNAME1 DEPNAME2...
+    ```
 
-Inter-file dependencies must be declared in text files with the `.mk` extension and stored under `TOP/vhdl` or its subdirectories.
-The dependency syntax is that of make rules without recipes and using only the basename of the VHDL source files without the `.vhd` extension.
-If `TOP/vhdl/foo/bar.mk` exists and contains:
+   Example: if `icache.vhd` and `dcache.vhd` must be compiled before `mmu.vhd` and
+   `cpu.vhd`, add the following to a `.mk` file somewhere under `VHDL`:
 
-```
-bar: qux corge grault
-foo garply: corge fred
-```
+    ```
+    mmu cpu: icache dcache
+    ```
 
-it means that `bar.vhd` cannot be compiled before `qux.vhd`, `corge.vhd` and `grault.vhd` have been compiled.
-Similarly, `foo.vhd` and `garply.vhd` cannot be compiled before `corge.vhd` and `fred.vhd`.
-The subdirectory in which a `.mk` file is stored does not matter.
-Note that the letter case matters: if a VHDL source file is named `BaR.vhd`, dependency rules must use `BaR`, not `bar` or `Bar`.
+   The subdirectory in which a `.mk` file is stored does not matter. Note that the
+   letter case matters in dependency rules: if a source file is named `CPU.vhd`,
+   dependency rules must use `CPU`, not `cpu` or `Cpu`.
 
-## Custom target libraries
+7. A target library other than the default can be specified on a per-source
+   file basis using `NAME-lib` variables. Example: if `MODE=dirname` and
+   `VHDL/core/utils.vhd` must be compiled in library `common` instead of the default
+   `core`, add the following to a `.mk` file somewhere under `VHDL`:
 
-In the same `.mk` files a target VHDL library other than the default can be specified on a per-source file basis using `NAME-lib` variables.
-If there is a `foo/bar.vhd` VHDL source file and one of these `.mk` files contains:
+    ```
+    utils-lib := common
+    ```
 
-```
-bar-lib := barlib
-```
+8. If there is a `local.mk` file in `TOP`, it is included before anything else. It
+   can be used to set configuration variables to other values than the default.
+   Example:
 
-it means that `foo/bar.vhd` must be compiled in VHDL library `barlib` instead of the default `work` (if `MODE=work`) or `foo` (if `MODE=dirname`).
+    ```
+    DIR  := /tmp/build          # temporary build directory
+    GUI  := yes                 # simulate with Graphical User Interface
+    MODE := work                # default target library
+    SIM  := vsim                # Modelsim toolchain
+    SKIP := bogus in_progress   # ignore bogus.vhd and in_progress.vhd
+    V    := 1                   # verbose mode enabled
+    VHDL := /home/joe/project   # absolute path of root directory of source files
+    ```
 
-## The `local.mk` configuration file
+   Variable assignments on the command line overwrite assignments in the `local.mk`
+   file. Example to temporarily disable the GUI for a specific simulation:
 
-If `TOP` contains a `local.mk` file, it is included before anything else.
-It can be used to define make variables with custom values.
-If `TOP/local.mk` exists and contains:
+    ```
+    make arbiter_bench.sim GUI=no
+    ```
 
-```
-DIR  := /home/joe/project
-MODE := work
-SIM  := vsim
-GUI  := yes
-SKIP := bogus gusbo
-V    := 1
-```
+   If you know how to use GNU make you can add other make constructs to
+   `TOP/local.mk` (or to other `.mk` files). Example if the simulation of
+   `arbiter_bench` depends on data file `arbiter_bench.txt` generated by the
+   `VHDL/arbiter/bench.sh` script, you can add the following to `TOP/local.mk` or to
+   `VHDL/arbiter/arbiter.mk`:
 
-the temporary build directory is `/home/joe/project`, the default target library of compilations is `work`, the simulation toolchain is Modelsim, all simulations are run with the Graphical User Interface, the `bogus.vhd` and `gusbo.vhd` source files are ignored and the verbose mode is enabled.
-Variable assignments on the command line overwrite assignments in the `local.mk` file.
-If you know how to use GNU make you can add other make constructs to the `local.mk` (or to other `.mk` files).
+    ```
+    arbiter_bench.sim: arbiter_bench.txt
+    arbiter_bench.txt: /home/joe/myProject/vhdl/arbiter/bench.sh
+            $< > $@
+    ```
 
 <!-- vim: set tabstop=4 softtabstop=4 shiftwidth=4 noexpandtab textwidth=0: -->
