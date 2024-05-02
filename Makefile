@@ -22,16 +22,14 @@ endif
 TOP		:= $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 # project name
 PROJECT		:= $(notdir $(TOP))
-# name of local makefile for customizations
-LOCAL		:= local.mk
+# name of configuration file
+CONFIG		:= config
 
-# include local declarations if any
-ifneq ($(wildcard $(TOP)/$(LOCAL)),)
-include $(TOP)/$(LOCAL)
+# include configuration file
+ifneq ($(wildcard $(TOP)/$(CONFIG)),)
+include $(TOP)/$(CONFIG)
 endif
 
-# absolute real path of vhdl directory
-VHDL		?= $(TOP)/vhdl
 # simulator (ghdl, vsim or xsim)
 SIM		?= ghdl
 # GUI mode
@@ -89,16 +87,16 @@ else
 .PHONY: help long-help list lib all
 
 # all design files
-SRCMK		:= $(shell find -L $(VHDL) -type f,l \( -name '*.vhd' -o -name '*.mk' \))
-# all source files under $(VHDL)
-SRC		:= $(patsubst $(VHDL)/%,%,$(filter %.vhd,$(SRCMK)))
+SRCMK		:= $(shell find -L $(TOP) -type f,l \( -name '*.vhd' -o -name '*.mk' \))
+# all source files under $(TOP)
+SRC		:= $(patsubst $(TOP)/%,%,$(filter %.vhd,$(SRCMK)))
 # skip design units listed in SKIP
 SRC		:= $(filter-out $(addprefix %/,$(addsuffix .vhd,$(SKIP))),$(SRC))
 # design unit names (base names of source files without the .vhd extension)
 NAME		:= $(patsubst %.vhd,%,$(notdir $(SRC)))
 # simulation targets are NAME.sim
 SIMULATIONS	:= $(addsuffix .sim,$(NAME))
-# all dependency files under $(VHDL)
+# all dependency files under $(TOP)
 MK		:= $(filter %.mk,$(SRCMK))
 
 # include dependency files
@@ -108,7 +106,7 @@ include $(MK)
 LIB	:=
 
 # target-specific variables, libraries
-# $(1): source file path relative to $(VHDL)
+# $(1): source file path relative to $(TOP)
 define VAR_rule
 $(1)-name		:= $$(patsubst %.vhd,%,$$(notdir $(1)))
 ifeq ($$(MODE),work)
@@ -170,7 +168,6 @@ Variable    valid values    description (current value)
     SIM     ghdl|vsim|xsim  simulation toolchain ($(SIM))
     SKIP    -               NAMEs to ignore for compilation ($(SKIP))
     V       0|1             verbosity level ($(V))
-    VHDL    -               absolute path of source files root directory ($(VHDL))
 
 Goals:
     help                    this help (default goal)
@@ -198,17 +195,16 @@ or:
 
 make -C TOP ...
 
-2. The directory containing the source files is the VHDL directory. All source
-files must be stored in the VHDL directory or its subdirectories and named
-NAME.vhd where NAME is any combination of alphanumeric characters, plus
-underscores (no spaces or tabs, for instance).
+2. All source files must be stored in the TOP directory or its subdirectories
+and named NAME.vhd where NAME is any combination of alphanumeric characters,
+plus underscores (no spaces or tabs, for instance).
 
 3. Each source file has a default target library: work if MODE=work, or the
 name of the directory of the source file if MODE=dirname. Target libraries are
 automatically created if they don't exist.
 
 4. Source file names must be unique. It is not possible to have a
-VHDL/core/version.vhd and a VHDL/interconnect/version.vhd.
+TOP/core/version.vhd and a TOP/interconnect/version.vhd.
 
 5. The NAME.sim simulation goal simulates entity NAME defined in file NAME.vhd.
 If you want to use this Makefile to launch simulations, name the source file of
@@ -218,33 +214,33 @@ arbiter_bench.vhd and launch the simulation with:
 
 make arbiter_bench.sim [VAR=VALUE...]
 
-Note that the simulations are launched from the DIR temporary build directory.
-If can matter if, for instance, a simulation environment reads or writes data
-files.
+Note: the simulations are launched from the DIR temporary build directory.
+It can matter if, for instance, a simulation reads or writes data files.
 
 6. Inter-file dependencies must be declared in text files with the .mk
-extension and stored in VHDL or its subdirectories. The dependency syntax is:
+extension and stored in TOP or its subdirectories. The dependency syntax is:
 
 NAME1 NAME2...: DEPNAME1 DEPNAME2...
 
 Example: if icache.vhd and dcache.vhd must be compiled before mmu.vhd and
-cpu.vhd, add the following to a .mk file somewhere under VHDL:
+cpu.vhd, add the following to a .mk file somewhere under TOP:
 
 mmu cpu: icache dcache
 
-The subdirectory in which a .mk file is stored does not matter. Note that the
-letter case matters in dependency rules: if a source file is named CPU.vhd,
-dependency rules must use CPU, not cpu or Cpu.
+The subdirectory in which a .mk file is stored does not matter.
+
+Note: the letter case matters in dependency rules: if a source file is named
+CPU.vhd, dependency rules must use CPU, not cpu or Cpu.
 
 7. A target library other than the default can be specified on a per-source
 file basis using NAME-lib variables. Example: if MODE=dirname and
-VHDL/core/utils.vhd must be compiled in library common instead of the default
-core, add the following to a .mk file somewhere under VHDL:
+TOP/core/utils.vhd must be compiled in library common instead of the default
+core, add the following to a .mk file somewhere under TOP:
 
 utils-lib := common
 
-8. If there is a local.mk file in TOP, it is included before anything else. It
-can be used to set configuration variables to other values than the default.
+8. If there is a file named config in TOP, it is included before anything else.
+It can be used to set configuration variables to other values than the default.
 Example:
 
 DIR  := /tmp/build          # temporary build directory
@@ -253,21 +249,19 @@ MODE := work                # default target library
 SIM  := vsim                # Modelsim toolchain
 SKIP := bogus in_progress   # ignore bogus.vhd and in_progress.vhd
 V    := 1                   # verbose mode enabled
-VHDL := /home/joe/project   # absolute path of root directory of source files
 
-Variable assignments on the command line overwrite assignments in the local.mk
+Variable assignments on the command line overwrite assignments in the config
 file. Example to temporarily disable the GUI for a specific simulation:
 
 make arbiter_bench.sim GUI=no
 
-If you know how to use GNU make you can add other make constructs to
-TOP/local.mk (or to other .mk files). Example if the simulation of
-arbiter_bench depends on data file arbiter_bench.txt generated by the
-VHDL/arbiter/bench.sh script, you can add the following to TOP/local.mk or to
-VHDL/arbiter/arbiter.mk:
+If you know how to use GNU make you can add other make constructs to TOP/config
+(or to other .mk files). Example if the simulation of arbiter_bench depends on
+data file arbiter_bench.txt generated by the TOP/arbiter/bench.sh script, you
+can add the following to TOP/config or to TOP/arbiter/arbiter.mk:
 
 arbiter_bench.sim: $(DIR)/arbiter_bench.txt
-$(DIR)/arbiter_bench.txt: $(VHDL)/arbiter/bench.sh
+$(DIR)/arbiter_bench.txt: $(TOP)/arbiter/bench.sh
         $< > $@
 
 endef
@@ -293,9 +287,9 @@ list:
 # tags are empty files used to keep track of the last compilation time of the
 # source files; they are stored in $(DIR) and their name is the base name of
 # the source file without the .vhd extension
-# $(1): source file path relative to $(VHDL)
+# $(1): source file path relative to $(TOP)
 define VHD_rule
-$$($(1)-name): $$(VHDL)/$(1)
+$$($(1)-name): $$(TOP)/$(1)
 	@printf '[COM]   %-50s -> %s\n' "$$(patsubst $$(TOP)/%,%,$$<)" "$$(LIBNAME)"
 	$$(COM)
 	touch $$@
