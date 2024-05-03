@@ -52,9 +52,8 @@ compatible with the conventions, please do not use this Makefile.
    for instance). The name of unit `TOP/core/version.vhd` is `version`.
 
 3. Each unit has a default target library: `work` if `MODE=work`, or the name
-   of the directory of the unit if `MODE=dirname`. A unit name cannot also be a
-   library name. Target libraries are automatically created if they don't
-   exist.
+   of the directory of the unit if `MODE=dirname`. Target libraries are
+   automatically created if they don't exist.
 
 4. Unit names must be unique. It is not possible to have units
    `TOP/core/version.vhd` and `TOP/interconnect/version.vhd`.

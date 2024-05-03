@@ -48,6 +48,8 @@ endif
 endif
 # temporary build directory
 DIR ?= /tmp/$(USER)/$(PROJECT)/$(SIM)
+# tags subdirectory of DIR
+TAGS := .tags
 # compilation mode:
 # - "work":    the default target library is work,
 # - "dirname": the default target library is the one with same name as the
@@ -120,9 +122,8 @@ compatible with the conventions, please do not use this Makefile.
    for instance). The name of unit `TOP/core/version.vhd` is `version`.
 
 3. Each unit has a default target library: `work` if `MODE=work`, or the name
-   of the directory of the unit if `MODE=dirname`. A unit name cannot also be a
-   library name. Target libraries are automatically created if they don't
-   exist.
+   of the directory of the unit if `MODE=dirname`. Target libraries are
+   automatically created if they don't exist.
 
 4. Unit names must be unique. It is not possible to have units
    `TOP/core/version.vhd` and `TOP/interconnect/version.vhd`.
@@ -196,6 +197,7 @@ long-help:: help
 	@printf '\n%s\n' "$$LONG_HELP_message"
 
 clean:
+	@printf '[RM]    %s\n' "$(DIR)"
 	rm -rf $(DIR)
 
 define INTRO_message
@@ -224,12 +226,14 @@ ifneq ($(PASS),run)
 # last resort default rule to invoke again with same goal and same Makefile but
 # in $(DIR)
 %::
-	mkdir -p $(DIR)
+	mkdir -p $(DIR)/$(TAGS)
 	$(MAKE) --no-print-directory -C $(DIR) -f $(TOP)/Makefile $@ PASS=run
 
 # second make invocation (in $(DIR))
 else
 
+# search tag files in $(TAGS)
+VPATH := $(TAGS)
 # all source and dependency files
 SRCMKS := $(shell find -L $(TOP) -type f,l \( -name '*.vhd' -o -name '*.mk' \))
 # all source files
@@ -238,6 +242,12 @@ SRCS := $(patsubst $(TOP)/%,%,$(filter %.vhd,$(SRCMKS)))
 SRCS := $(filter-out $(addprefix %/,$(addsuffix .vhd,$(SKIP))),$(SRCS))
 # unit names (source file base names without .vhd extension)
 UNITS := $(patsubst %.vhd,%,$(notdir $(SRCS)))
+sorted_units := $(sort $(UNITS))
+duplicates := $(sort $(strip $(foreach u,$(sorted_units),$(word 2,$(filter $u,$(UNITS))))))
+ifneq ($(duplicates),)
+$(error duplicated unit names: $(duplicates))
+endif
+UNITS := $(sorted_units)
 # simulation goals are UNIT.sim
 SIMULATIONS := $(addsuffix .sim,$(UNITS))
 # all dependency files under $(TOP)
@@ -271,7 +281,7 @@ LIBS += $$($$($(1)-unit)-lib)
 $$($(1)-unit): $$(TOP)/$(1)
 	@printf '[COM]   %-50s -> %s\n' "$$(patsubst $$(TOP)/%,%,$$<)" "$$(LIBNAME)"
 	$$(COM)
-	touch $$@
+	touch $(TAGS)/$$@
 
 $$($(1)-unit).sim: $$($(1)-unit)
 	@printf '[SIM]   %-50s\n' "$$(LIBNAME).$$(UNIT)"
@@ -313,10 +323,10 @@ $(error "$(SIM): invalid SIM value")
 endif
 
 libs:
-	@printf '%s\n' 'Library' '-------' $(sort $(LIBS))
+	@printf '%s\n' $(LIBS)
 
 units:
-	@printf '%-36s%-36s\n' "Existing UNITs" "" "--------------" "" $(sort $(UNITS))
+	@printf '%-36s%-36s\n' $(UNITS)
 
 # compile all units
 all: $(UNITS)
