@@ -14,7 +14,7 @@ Examples:
     make foo_sim.sim DIR=/tmp/ghdl_sim SIM=ghdl GUI=yes
 
 Variable    valid values    description (current value)
-    DIR     -               temporary build directory (/tmp/build)
+    DIR     -               temporary build directory (/tmp/build/ghdl)
     GUI     yes|no          use Graphical User Interface (no)
     MODE    work|dirname    default target library (work)
     SIM     ghdl|vsim|xsim  simulation toolchain (ghdl)
@@ -49,14 +49,17 @@ compatible with the conventions, please do not use this Makefile.
 2. Source files are considered as indivisible units. They must be stored in the
    `TOP` directory or its subdirectories and named `UNIT.vhd` where `UNIT` is
    any combination of alphanumeric characters, plus underscores (no spaces or tabs,
-   for instance). The name of unit `TOP/core/version.vhd` is `version`.
+   for instance). The "name" of a unit is the basename of its source file
+   without the `.vhd` extension. Example: the name of unit
+   `TOP/core/version.vhd` is `version`.
 
 3. Each unit has a default target library: `work` if `MODE=work`, or the name
    of the directory of the unit if `MODE=dirname`. Target libraries are
    automatically created if they don't exist.
 
 4. Unit names must be unique. It is not possible to have units
-   `TOP/core/version.vhd` and `TOP/interconnect/version.vhd`.
+   `TOP/core/version.vhd` and `TOP/interconnect/version.vhd`, even if
+   `MODE=dirname` and their target libraries are different.
 
 5. `make UNIT.sim` simulates entity `UNIT` defined in file `UNIT.vhd`. If you
    want to use this Makefile to launch simulations, name the source file of
@@ -84,8 +87,9 @@ compatible with the conventions, please do not use this Makefile.
 
    The subdirectory in which a `.mk` file is stored does not matter.
 
-   Note: the letter case matters in dependency rules: if a unit is named
-   `CPU.vhd`, dependency rules must use `CPU`, not `cpu` or `Cpu`.
+   Note: the letter case matters in dependency rules: if a unit is `CPU.vhd`,
+   its name is `CPU` and the dependency rules must use `CPU`, not `cpu` or
+   `Cpu`.
 
 7. A target library other than the default can be specified on a per-unit basis
    using `UNIT-lib` variables. Example: if `MODE=dirname` and
@@ -98,7 +102,7 @@ compatible with the conventions, please do not use this Makefile.
    It can be used to set configuration variables to other values than the default.
    Example of `TOP/config` file:
 
-        DIR  := /tmp/build
+        DIR  := /tmp/build/vsim
         GUI  := yes
         MODE := work
         SIM  := vsim

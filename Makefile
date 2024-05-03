@@ -46,6 +46,34 @@ ifneq ($(GUI),no)
 $(error "$(GUI): invalid GUI value")
 endif
 endif
+ifeq ($(SIM),ghdl)
+COM = ghdl -a --std=08 -frelaxed --work=$(LIBNAME) $(GHDLAFLAGS) $<
+ELAB := true
+ifeq ($(GUI),yes)
+RUN = ghdl --elab-run --std=08 -frelaxed --work=$(LIBNAME) $(UNIT) --wave=$(UNIT).ghw $(GHDLRFLAGS); \
+      printf 'GHW file: $(DIR)/$(UNIT).ghw\nUse, e.g., GTKWave to display the GHW file\n'
+else
+RUN = ghdl --elab-run --std=08 -frelaxed --work=$(LIBNAME) $(UNIT) $(GHDLRFLAGS)
+endif
+else ifeq ($(SIM),vsim)
+COM = vcom -nologo -quiet -2008 +acc -work $(LIBNAME) $<
+ELAB := true
+ifeq ($(GUI),yes)
+RUN = vsim -voptargs="+acc" $(VSIMFLAGS) $(LIBNAME).$(UNIT)
+else
+RUN = vsim -voptargs="+acc" -c -do 'run -all; quit' $(VSIMFLAGS) $(LIBNAME).$(UNIT)
+endif
+else ifeq ($(SIM),xsim)
+COM = xvhdl -2008 --work $(LIBNAME) $< $(if $(VERBOSE),,> /dev/null)
+ELAB = xelab -debug all $(XELABFLAGS) $(LIBNAME).$(UNIT)
+ifeq ($(GUI),yes)
+RUN = xsim -gui $(LIBNAME).$(UNIT)
+else
+RUN = xsim -runall $(LIBNAME).$(UNIT)
+endif
+else
+$(error "$(SIM): invalid SIM value")
+endif
 # temporary build directory
 DIR ?= /tmp/$(USER)/$(PROJECT)/$(SIM)
 # tags subdirectory of DIR
@@ -119,14 +147,17 @@ compatible with the conventions, please do not use this Makefile.
 2. Source files are considered as indivisible units. They must be stored in the
    `TOP` directory or its subdirectories and named `UNIT.vhd` where `UNIT` is
    any combination of alphanumeric characters, plus underscores (no spaces or tabs,
-   for instance). The name of unit `TOP/core/version.vhd` is `version`.
+   for instance). The "name" of a unit is the basename of its source file
+   without the `.vhd` extension. Example: the name of unit
+   `TOP/core/version.vhd` is `version`.
 
 3. Each unit has a default target library: `work` if `MODE=work`, or the name
    of the directory of the unit if `MODE=dirname`. Target libraries are
    automatically created if they don't exist.
 
 4. Unit names must be unique. It is not possible to have units
-   `TOP/core/version.vhd` and `TOP/interconnect/version.vhd`.
+   `TOP/core/version.vhd` and `TOP/interconnect/version.vhd`, even if
+   `MODE=dirname` and their target libraries are different.
 
 5. `make UNIT.sim` simulates entity `UNIT` defined in file `UNIT.vhd`. If you
    want to use this Makefile to launch simulations, name the source file of
@@ -154,8 +185,9 @@ compatible with the conventions, please do not use this Makefile.
 
    The subdirectory in which a `.mk` file is stored does not matter.
 
-   Note: the letter case matters in dependency rules: if a unit is named
-   `CPU.vhd`, dependency rules must use `CPU`, not `cpu` or `Cpu`.
+   Note: the letter case matters in dependency rules: if a unit is `CPU.vhd`,
+   its name is `CPU` and the dependency rules must use `CPU`, not `cpu` or
+   `Cpu`.
 
 7. A target library other than the default can be specified on a per-unit basis
    using `UNIT-lib` variables. Example: if `MODE=dirname` and
@@ -168,7 +200,7 @@ compatible with the conventions, please do not use this Makefile.
    It can be used to set configuration variables to other values than the default.
    Example of `TOP/config` file:
 
-        DIR  := /tmp/build
+        DIR  := /tmp/build/vsim
         GUI  := yes
         MODE := work
         SIM  := vsim
@@ -266,7 +298,7 @@ LIBS :=
 # instantiate compilation and simulation rules
 # in $(DIR) empty files with unit names are used to keep track of last
 # compilation times
-define VAR_rule
+define GEN_rule
 $(1)-unit := $$(patsubst %.vhd,%,$$(notdir $(1)))
 ifeq ($$(MODE),work)
 $$($(1)-unit)-lib ?= work
@@ -288,43 +320,16 @@ $$($(1)-unit).sim: $$($(1)-unit)
 	$$(ELAB)
 	$$(RUN)
 endef
-$(foreach f,$(SRCS),$(eval $(call VAR_rule,$(f))))
+$(foreach f,$(SRCS),$(eval $(call GEN_rule,$(f))))
 
 # library list without duplicates
 LIBS := $(sort $(LIBS))
 
-ifeq ($(SIM),ghdl)
-COM = ghdl -a --std=08 -frelaxed --work=$(LIBNAME) $(GHDLAFLAGS) $<
-ELAB := true
-ifeq ($(GUI),yes)
-RUN = ghdl --elab-run --std=08 -frelaxed --work=$(LIBNAME) $(UNIT) --wave=$(UNIT).ghw $(GHDLRFLAGS); \
-      printf 'GHW file: $(DIR)/$(UNIT).ghw\nUse, e.g., GTKWave to display the GHW file\n'
-else
-RUN = ghdl --elab-run --std=08 -frelaxed --work=$(LIBNAME) $(UNIT) $(GHDLRFLAGS)
-endif
-else ifeq ($(SIM),vsim)
-COM = vcom -nologo -quiet -2008 +acc -work $(LIBNAME) $<
-ELAB := true
-ifeq ($(GUI),yes)
-RUN = vsim -voptargs="+acc" $(VSIMFLAGS) $(LIBNAME).$(UNIT)
-else
-RUN = vsim -voptargs="+acc" -c -do 'run -all; quit' $(VSIMFLAGS) $(LIBNAME).$(UNIT)
-endif
-else ifeq ($(SIM),xsim)
-COM = xvhdl -2008 --work $(LIBNAME) $< $(if $(VERBOSE),,> /dev/null)
-ELAB = xelab -debug all $(XELABFLAGS) $(LIBNAME).$(UNIT)
-ifeq ($(GUI),yes)
-RUN = xsim -gui $(LIBNAME).$(UNIT)
-else
-RUN = xsim -runall $(LIBNAME).$(UNIT)
-endif
-else
-$(error "$(SIM): invalid SIM value")
-endif
-
+# list libraries
 libs:
 	@printf '%s\n' $(LIBS)
 
+# list units
 units:
 	@printf '%-36s%-36s\n' $(UNITS)
 

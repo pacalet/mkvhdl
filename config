@@ -1,4 +1,4 @@
-DIR  := /tmp/build
+DIR  := /tmp/build/ghdl
 GUI  := no
 MODE := work
 SIM  := ghdl
