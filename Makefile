@@ -7,6 +7,12 @@
 # available at:
 # https://cecill.info/licences/Licence_CeCILL_V2.1-en.html
 
+# default goal
+.DEFAULT_GOAL := help
+
+# phony targets
+.PHONY: help long-help clean
+
 # Compilation is not parallel-safe because most tools use per-library shared
 # files that they update after each compilation.
 .NOTPARALLEL:
@@ -30,6 +36,7 @@ ifneq ($(wildcard $(TOP)/$(CONFIG)),)
 include $(TOP)/$(CONFIG)
 endif
 
+# compute configuration variables
 # simulator (ghdl, vsim or xsim)
 SIM ?= ghdl
 # GUI mode
@@ -62,11 +69,7 @@ else
 $(error invalid V value: $(V))
 endif
 
-# 'make' is the same as 'make help'
-.DEFAULT_GOAL := help
-
-.PHONY: help long-help clean
-
+# help messages and goals
 define HELP_message
 Usage:
     make [GOAL] [VARIABLE=VALUE ...]
@@ -86,9 +89,9 @@ Variable    valid values    description (current value)
 Goals:
     help                    this help (default goal)
     long-help               print long help
-    lib                     print library names / directories
+    libs                    print library names
     UNIT                    compile UNIT.vhd
-    list                    print existing UNITs not in SKIP
+    units                   print existing UNITs not in SKIP
     all                     compile all source files not in SKIP
     UNIT.sim                simulate UNIT
     clean                   delete temporary build directory
@@ -96,101 +99,121 @@ endef
 export HELP_message
 
 help::
-	@echo "$$HELP_message"
+	@printf '%s\n' "$$HELP_message"
 
 define LONG_HELP_message
+This Makefile is for GNU make only and uses conventions; if your project is not
+compatible with the conventions, please do not use this Makefile.
 
-This Makefile uses conventions; if your project is not compatible with the
-conventions, please do not use this Makefile.
+1. The directory containing this Makefile is the `TOP` directory. All make
+   commands must be launched from `TOP`:
 
-1. The directory containing this Makefile is the TOP directory. All make
-commands must be launched from TOP:
+        cd TOP; make ...
 
-cd TOP; make ...
+   or:
 
-or:
-
-make -C TOP ...
+        make -C TOP ...
 
 2. Source files are considered as indivisible units. They must be stored in the
-TOP directory or its subdirectories and named UNIT.vhd where UNIT is any
-combination of alphanumeric characters, plus underscores (no spaces or tabs,
-for instance).
+   `TOP` directory or its subdirectories and named `UNIT.vhd` where `UNIT` is
+   any combination of alphanumeric characters, plus underscores (no spaces or tabs,
+   for instance). The name of unit `TOP/core/version.vhd` is `version`.
 
-3. Each source file has a default target library: work if MODE=work, or the
-name of the directory of the source file if MODE=dirname. Target libraries are
-automatically created if they don't exist.
+3. Each unit has a default target library: `work` if `MODE=work`, or the name
+   of the directory of the unit if `MODE=dirname`. A unit name cannot also be a
+   library name. Target libraries are automatically created if they don't
+   exist.
 
-4. Currently source file names must be unique. It is not possible to have a
-unit TOP/core/version.vhd and another unit TOP/interconnect/version.vhd.
+4. Unit names must be unique. It is not possible to have units
+   `TOP/core/version.vhd` and `TOP/interconnect/version.vhd`.
 
-5. The UNIT.sim goal simulates entity UNIT defined in file UNIT.vhd. If you
-want to use this Makefile to launch simulations, name the source file of your
-simulation environment according its entity name. Example: if the entity of a
-simulation environment is arbiter_bench, name its source file arbiter_bench.vhd
-and launch the simulation with:
+5. `make UNIT.sim` simulates entity `UNIT` defined in file `UNIT.vhd`. If you
+   want to use this Makefile to launch simulations, name the source file of
+   your simulation environment according its entity name. Example: if the
+   entity of a simulation environment is `arbiter_bench`, name its source file
+   `arbiter_bench.vhd` and launch the simulation with:
 
-make arbiter_bench.sim [VAR=VALUE...]
+        make arbiter_bench.sim [VAR=VALUE...]
 
-Note: the simulations are launched from the DIR temporary build directory.
-It can matter if, for instance, a simulation reads or writes data files.
+   Note: the simulations are launched from the `DIR` temporary build directory.
+   It can matter if, for instance, a simulation reads or writes data files.
+   With GHDL and `GUI=yes` the waveforms file is created in `DIR`.
 
-6. Inter-file dependencies must be declared in text files with the .mk
-extension and stored in TOP or its subdirectories. The dependency syntax is:
+6. Inter-unit dependencies must be declared in text files with the `.mk`
+   extension and stored in `TOP` or its subdirectories. The dependency syntax is:
 
-UNIT1 UNIT2...: DEP1 DEP2...
+        UNIT [UNIT...]: UNIT [UNIT...]
 
-Example: if icache.vhd and dcache.vhd must be compiled before mmu.vhd and
-cpu.vhd, add the following to a .mk file somewhere under TOP:
+   where the left-hand side units depend on the right-hand side units. Example: if
+   `mmu.vhd` and `cpu.vhd` depend on `icache.vhd` and `dcache.vhd` (that is, if
+   `icache.vhd` and `dcache.vhd` must be compiled before `mmu.vhd` and
+   `cpu.vhd`), add the following to a `.mk` file somewhere under `TOP`:
 
-mmu cpu: icache dcache
+        mmu cpu: icache dcache
 
-The subdirectory in which a .mk file is stored does not matter.
+   The subdirectory in which a `.mk` file is stored does not matter.
 
-Note: the letter case matters in dependency rules: if a source file is named
-CPU.vhd, dependency rules must use CPU, not cpu or Cpu.
+   Note: the letter case matters in dependency rules: if a unit is named
+   `CPU.vhd`, dependency rules must use `CPU`, not `cpu` or `Cpu`.
 
-7. A target library other than the default can be specified on a per-source
-file basis using UNIT-lib variables. Example: if MODE=dirname and
-TOP/core/utils.vhd must be compiled in library common instead of the default
-core, add the following to a .mk file somewhere under TOP:
+7. A target library other than the default can be specified on a per-unit basis
+   using `UNIT-lib` variables. Example: if `MODE=dirname` and
+   `TOP/core/utils.vhd` must be compiled in library `common` instead of the
+   default `core`, add the following to a `.mk` file somewhere under `TOP`:
 
-utils-lib := common
+        utils-lib := common
 
-8. If there is a file named config in TOP, it is included before anything else.
-It can be used to set configuration variables to other values than the default.
-Example of TOP/config file:
+8. If there is a file named `config` in `TOP`, it is included before anything else.
+   It can be used to set configuration variables to other values than the default.
+   Example of `TOP/config` file:
 
-DIR  := /tmp/build          # temporary build directory
-GUI  := yes                 # simulate with Graphical User Interface
-MODE := work                # default target library
-SIM  := vsim                # Modelsim toolchain
-SKIP := bogus in_progress   # ignore units bogus.vhd and in_progress.vhd
-V    := 1                   # verbose mode enabled
+        DIR  := /tmp/build
+        GUI  := yes
+        MODE := work
+        SIM  := vsim
+        SKIP := bogus in_progress
+        V    := 1
 
-Variable assignments on the command line overwrite assignments in the config
-file. Example to temporarily disable the GUI for a specific simulation:
+   Variable assignments on the command line overwrite assignments in
+   `TOP/config`. Example to temporarily disable the GUI for a specific
+   simulation:
 
-make arbiter_bench.sim GUI=no
+        make arbiter_bench.sim GUI=no
 
-If you know how to use GNU make you can add other make constructs to TOP/config
-(or to other .mk files). Example if the simulation of arbiter_bench depends on
-data file arbiter_bench.txt generated by the TOP/arbiter/bench.sh script, you
-can add the following to TOP/config or to TOP/arbiter/arbiter.mk:
+   If you know how to use GNU make you can add other make constructs to
+   `TOP/config` (or to `.mk` files). Example if the simulation of
+   `arbiter_bench` depends on data file `arbiter_bench.txt` generated by the
+   `TOP/arbiter/bench.sh` script, you can add the following to `TOP/config` or
+   to `TOP/arbiter/arbiter.mk`:
 
-arbiter_bench.sim: $(DIR)/arbiter_bench.txt
-$(DIR)/arbiter_bench.txt: $(TOP)/arbiter/bench.sh
-        $< > $@
-
+        arbiter_bench.sim: $$(DIR)/arbiter_bench.txt
+        $$(DIR)/arbiter_bench.txt: $$(TOP)/arbiter/bench.sh
+                $$< > $$@
 endef
 export LONG_HELP_message
 
-long-help::
-	@echo "$$HELP_message"
-	@echo "$$LONG_HELP_message"
+long-help:: help
+	@printf '\n%s\n' "$$LONG_HELP_message"
 
 clean:
 	rm -rf $(DIR)
+
+define INTRO_message
+# Makefile for VHDL compilation and simulation
+
+## Quick start
+
+Drop this Makefile in the root directory of your VHDL project and always use the `.vhd` extension for your source files.
+From the root directory of your VHDL project just type `make` to print the short help.
+endef
+export INTRO_message
+
+README.md: $(TOP)/Makefile $(wildcard $(TOP)/$(CONFIG))
+	printf '%s\n' "$$INTRO_message" > $@
+	printf '\n```\n' >> $@
+	printf '%s\n' "$$HELP_message" >> $@
+	printf '```\n\n## Documentation\n\n' >> $@
+	printf '%s\n' "$$LONG_HELP_message" >> $@
 
 # if not clean, help or long-help, and first make invocation
 ifneq ($(filter-out clean help long-help,$(MAKECMDGOALS)),)
@@ -220,13 +243,13 @@ SIMULATIONS := $(addsuffix .sim,$(UNITS))
 # all dependency files under $(TOP)
 MKS := $(filter %.mk,$(SRCMKS))
 
-.PHONY: list lib all $(addprefix .sim,$(UNITS))
+.PHONY: units libs all $(addprefix .sim,$(UNITS))
 
 # include dependency files
 include $(MKS)
 
 # library list
-LIB :=
+LIBS :=
 
 # $(1): source file path relative to $(TOP)
 # define target-specific variables (LIBNAME, UNIT)
@@ -243,7 +266,7 @@ endif
 $$($(1)-unit) $$($(1)-unit).sim: LIBNAME = $$($$($(1)-unit)-lib)
 $$($(1)-unit) $$($(1)-unit).sim: UNIT    = $$($(1)-unit)
 
-LIB += $$($$($(1)-unit)-lib)
+LIBS += $$($$($(1)-unit)-lib)
 
 $$($(1)-unit): $$(TOP)/$(1)
 	@printf '[COM]   %-50s -> %s\n' "$$(patsubst $$(TOP)/%,%,$$<)" "$$(LIBNAME)"
@@ -258,7 +281,7 @@ endef
 $(foreach f,$(SRCS),$(eval $(call VAR_rule,$(f))))
 
 # library list without duplicates
-LIB := $(sort $(LIB))
+LIBS := $(sort $(LIBS))
 
 ifeq ($(SIM),ghdl)
 COM = ghdl -a --std=08 -frelaxed --work=$(LIBNAME) $(GHDLAFLAGS) $<
@@ -289,16 +312,13 @@ else
 $(error "$(SIM): invalid SIM value")
 endif
 
-lib:
-	@printf '%-36s%-36s\n' "Library" "Directory" "-------" "---------"; \
-	for l in $(LIB); do \
-		printf '%-36s%-36s\n' "$$l" "$(DIR)/.$$l.lib"; \
-	done
+libs:
+	@printf '%s\n' 'Library' '-------' $(sort $(LIBS))
 
-list:
+units:
 	@printf '%-36s%-36s\n' "Existing UNITs" "" "--------------" "" $(sort $(UNITS))
 
-# compile all source files
+# compile all units
 all: $(UNITS)
 endif
 endif

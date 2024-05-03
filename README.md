@@ -14,124 +14,110 @@ Examples:
     make foo_sim.sim DIR=/tmp/ghdl_sim SIM=ghdl GUI=yes
 
 Variable    valid values    description (current value)
-    DIR     -               temporary build directory (/tmp)
+    DIR     -               temporary build directory (/tmp/build)
     GUI     yes|no          use Graphical User Interface (no)
     MODE    work|dirname    default target library (work)
     SIM     ghdl|vsim|xsim  simulation toolchain (ghdl)
-    SKIP    -               NAMEs to ignore for compilation ()
+    SKIP    -               UNITs to ignore for compilation ()
     V       0|1             verbosity level (0)
 
 Goals:
     help                    this help (default goal)
     long-help               print long help
-    lib                     print library names / directories
-    NAME                    compile NAME.vhd
-    list                    print existing NAMEs not in SKIP
+    libs                    print library names
+    UNIT                    compile UNIT.vhd
+    units                   print existing UNITs not in SKIP
     all                     compile all source files not in SKIP
-    NAME.sim                simulate NAME
+    UNIT.sim                simulate UNIT
     clean                   delete temporary build directory
 ```
 
 ## Documentation
 
-This Makefile uses conventions; if your project is not compatible with the
-conventions, please do not use this Makefile.
+This Makefile is for GNU make only and uses conventions; if your project is not
+compatible with the conventions, please do not use this Makefile.
 
 1. The directory containing this Makefile is the `TOP` directory. All make
    commands must be launched from `TOP`:
 
-    ```
-    cd TOP; make ...
-    ```
+        cd TOP; make ...
 
    or:
 
-    ```
-    make -C TOP ...
-    ```
+        make -C TOP ...
 
-2. All source files must be stored in the `TOP` directory or its subdirectories
-   and named `NAME.vhd` where `NAME` is any combination of alphanumeric characters,
-   plus underscores (no spaces or tabs, for instance).
+2. Source files are considered as indivisible units. They must be stored in the
+   `TOP` directory or its subdirectories and named `UNIT.vhd` where `UNIT` is
+   any combination of alphanumeric characters, plus underscores (no spaces or tabs,
+   for instance). The name of unit `TOP/core/version.vhd` is `version`.
 
-3. Each source file has a default target library: `work` if `MODE=work`, or the
-   name of the directory of the source file if `MODE=dirname`. Target libraries are
-   automatically created if they don't exist.
+3. Each unit has a default target library: `work` if `MODE=work`, or the name
+   of the directory of the unit if `MODE=dirname`. A unit name cannot also be a
+   library name. Target libraries are automatically created if they don't
+   exist.
 
-4. Source file names must be unique. It is not possible to have a
-   `TOP/core/version.vhd` and a `TOP/interconnect/version.vhd`.
+4. Unit names must be unique. It is not possible to have units
+   `TOP/core/version.vhd` and `TOP/interconnect/version.vhd`.
 
-5. The `NAME.sim` simulation goal simulates entity `NAME` defined in file `NAME.vhd`.
-   If you want to use this Makefile to launch simulations, name the source file of
-   your simulation environment according its entity name. Example: if the entity
-   of a simulation environment is `arbiter_bench`, name its source file
+5. `make UNIT.sim` simulates entity `UNIT` defined in file `UNIT.vhd`. If you
+   want to use this Makefile to launch simulations, name the source file of
+   your simulation environment according its entity name. Example: if the
+   entity of a simulation environment is `arbiter_bench`, name its source file
    `arbiter_bench.vhd` and launch the simulation with:
 
-    ```
-    make arbiter_bench.sim [VAR=VALUE...]
-    ```
+        make arbiter_bench.sim [VAR=VALUE...]
 
    Note: the simulations are launched from the `DIR` temporary build directory.
    It can matter if, for instance, a simulation reads or writes data files.
+   With GHDL and `GUI=yes` the waveforms file is created in `DIR`.
 
-6. Inter-file dependencies must be declared in text files with the `.mk`
+6. Inter-unit dependencies must be declared in text files with the `.mk`
    extension and stored in `TOP` or its subdirectories. The dependency syntax is:
 
-    ```
-    NAME1 NAME2...: DEPNAME1 DEPNAME2...
-    ```
+        UNIT [UNIT...]: UNIT [UNIT...]
 
-   Example: if `icache.vhd` and `dcache.vhd` must be compiled before `mmu.vhd` and
-   `cpu.vhd`, add the following to a `.mk` file somewhere under `TOP`:
+   where the left-hand side units depend on the right-hand side units. Example: if
+   `mmu.vhd` and `cpu.vhd` depend on `icache.vhd` and `dcache.vhd` (that is, if
+   `icache.vhd` and `dcache.vhd` must be compiled before `mmu.vhd` and
+   `cpu.vhd`), add the following to a `.mk` file somewhere under `TOP`:
 
-    ```
-    mmu cpu: icache dcache
-    ```
+        mmu cpu: icache dcache
 
    The subdirectory in which a `.mk` file is stored does not matter.
 
-   Note: the letter case matters in dependency rules: if a source file is named
+   Note: the letter case matters in dependency rules: if a unit is named
    `CPU.vhd`, dependency rules must use `CPU`, not `cpu` or `Cpu`.
 
-7. A target library other than the default can be specified on a per-source
-   file basis using `NAME-lib` variables. Example: if `MODE=dirname` and
-   `TOP/core/utils.vhd` must be compiled in library `common` instead of the default
-   `core`, add the following to a `.mk` file somewhere under `TOP`:
+7. A target library other than the default can be specified on a per-unit basis
+   using `UNIT-lib` variables. Example: if `MODE=dirname` and
+   `TOP/core/utils.vhd` must be compiled in library `common` instead of the
+   default `core`, add the following to a `.mk` file somewhere under `TOP`:
 
-    ```
-    utils-lib := common
-    ```
+        utils-lib := common
 
 8. If there is a file named `config` in `TOP`, it is included before anything else.
    It can be used to set configuration variables to other values than the default.
-   Example:
+   Example of `TOP/config` file:
 
-    ```
-    DIR  := /tmp/build          # temporary build directory
-    GUI  := yes                 # simulate with Graphical User Interface
-    MODE := work                # default target library
-    SIM  := vsim                # Modelsim toolchain
-    SKIP := bogus in_progress   # ignore bogus.vhd and in_progress.vhd
-    V    := 1                   # verbose mode enabled
-    ```
+        DIR  := /tmp/build
+        GUI  := yes
+        MODE := work
+        SIM  := vsim
+        SKIP := bogus in_progress
+        V    := 1
 
-   Variable assignments on the command line overwrite assignments in the `config`
-   file. Example to temporarily disable the GUI for a specific simulation:
+   Variable assignments on the command line overwrite assignments in
+   `TOP/config`. Example to temporarily disable the GUI for a specific
+   simulation:
 
-    ```
-    make arbiter_bench.sim GUI=no
-    ```
+        make arbiter_bench.sim GUI=no
 
    If you know how to use GNU make you can add other make constructs to
-   `TOP/config` (or to other `.mk` files). Example if the simulation of
+   `TOP/config` (or to `.mk` files). Example if the simulation of
    `arbiter_bench` depends on data file `arbiter_bench.txt` generated by the
-   `TOP/arbiter/bench.sh` script, you can add the following to `TOP/config` or to
-   `TOP/arbiter/arbiter.mk`:
+   `TOP/arbiter/bench.sh` script, you can add the following to `TOP/config` or
+   to `TOP/arbiter/arbiter.mk`:
 
-    ```
-    arbiter_bench.sim: arbiter_bench.txt
-    arbiter_bench.txt: /home/joe/myProject/arbiter/bench.sh
-            $< > $@
-    ```
-
-<!-- vim: set tabstop=4 softtabstop=4 shiftwidth=4 noexpandtab textwidth=0: -->
+        arbiter_bench.sim: $(DIR)/arbiter_bench.txt
+        $(DIR)/arbiter_bench.txt: $(TOP)/arbiter/bench.sh
+                $< > $@
