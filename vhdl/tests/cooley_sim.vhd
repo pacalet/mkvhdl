@@ -10,6 +10,7 @@
 
 -- Our simulation environment is a black box with no inputs and no outputs.
 entity cooley_sim is
+  generic(n: positive := 10000); -- number of test clock cycles
 end entity cooley_sim;
 
 -- The std.textio declares types, functions and procedures for text
@@ -85,7 +86,7 @@ begin
         down <= '0';
         di   <= (others => '0');
         wait until rising_edge(clk);
-        for i in 1 to 10000 loop
+        for i in 1 to n loop
             (up, down, di) <= r.get_bit_vector(11);
             wait until rising_edge(clk);
         end loop;

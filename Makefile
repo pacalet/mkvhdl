@@ -46,37 +46,45 @@ ifneq ($(GUI),no)
 $(error "$(GUI): invalid GUI value")
 endif
 endif
+GHDLAFLAGS ?= --std=08
+GHDLRFLAGS ?= --std=08
+GHDLRUNOPTS ?=
+VCOMFLAGS ?= -2008
+VSIMFLAGS ?=
+XVHDLFLAGS ?= -2008
+XELABFLAGS ?=
+XSIMFLAGS ?=
 ifeq ($(SIM),ghdl)
-COM = ghdl -a --std=08 -frelaxed --work=$(LIBNAME) $(GHDLAFLAGS) $<
+COM = ghdl -a $(GHDLAFLAGS) --work=$(LIBNAME) $<
 ELAB := true
 ifeq ($(GUI),yes)
-RUN = ghdl --elab-run --std=08 -frelaxed --work=$(LIBNAME) $(UNIT) --wave=$(UNIT).ghw $(GHDLRFLAGS); \
-      printf 'GHW file: $(DIR)/$(UNIT).ghw\nUse, e.g., GTKWave to display the GHW file\n'
+RUN = ghdl -r $(GHDLRFLAGS) --work=$(LIBNAME) $(UNIT) $(GHDLRUNOPTS) --wave=$(UNIT).ghw; \
+      printf 'GHW file: %s.ghw\nUse, e.g., GTKWave to display the GHW file\n' '$(DIR)/$(UNIT)'
 else
-RUN = ghdl --elab-run --std=08 -frelaxed --work=$(LIBNAME) $(UNIT) $(GHDLRFLAGS)
+RUN = ghdl -r $(GHDLRFLAGS) --work=$(LIBNAME) $(UNIT) $(GHDLRUNOPTS)
 endif
 else ifeq ($(SIM),vsim)
-COM = vcom -nologo -quiet -2008 +acc -work $(LIBNAME) $<
+COM = vcom $(VCOMFLAGS) -work $(LIBNAME) $<
 ELAB := true
 ifeq ($(GUI),yes)
-RUN = vsim -voptargs="+acc" $(VSIMFLAGS) $(LIBNAME).$(UNIT)
+RUN = vsim $(VSIMFLAGS) $(LIBNAME).$(UNIT)
 else
-RUN = vsim -voptargs="+acc" -c -do 'run -all; quit' $(VSIMFLAGS) $(LIBNAME).$(UNIT)
+RUN = vsim -c $(VSIMFLAGS) $(LIBNAME).$(UNIT)
 endif
 else ifeq ($(SIM),xsim)
-COM = xvhdl -2008 --work $(LIBNAME) $< $(if $(VERBOSE),,> /dev/null)
-ELAB = xelab -debug all $(XELABFLAGS) $(LIBNAME).$(UNIT)
+COM = xvhdl $(XVHDLFLAGS) --work $(LIBNAME) $< $(if $(VERBOSE),,> /dev/null)
+ELAB = xelab $(XELABFLAGS) $(LIBNAME).$(UNIT)
 ifeq ($(GUI),yes)
-RUN = xsim -gui $(LIBNAME).$(UNIT)
+RUN = xsim -gui $(XSIMFLAGS) $(LIBNAME).$(UNIT)
 else
-RUN = xsim -runall $(LIBNAME).$(UNIT)
+RUN = xsim $(XSIMFLAGS) $(LIBNAME).$(UNIT)
 endif
 else
 $(error "$(SIM): invalid SIM value")
 endif
 # temporary build directory
 DIR ?= /tmp/$(USER)/$(PROJECT)/$(SIM)
-# tags subdirectory of DIR
+# tags sub-directory of DIR
 TAGS := .tags
 # compilation mode:
 # - "work":    the default target library is work,
@@ -108,13 +116,21 @@ Examples:
     make foo_sim DIR=/tmp/mysim SIM=vsim V=1
     make foo_sim.sim DIR=/tmp/ghdl_sim SIM=ghdl GUI=yes
 
-Variable    valid values    description (current value)
-    DIR     -               temporary build directory ($(DIR))
-    GUI     yes|no          use Graphical User Interface ($(GUI))
-    MODE    work|dirname    default target library ($(MODE))
-    SIM     ghdl|vsim|xsim  simulation toolchain ($(SIM))
-    SKIP    -               UNITs to ignore for compilation ($(SKIP))
-    V       0|1             verbosity level ($(V))
+Variable         valid values    description (current value)
+    DIR          -               temporary build directory ($(DIR))
+    GHDLAFLAGS   -               GHDL analysis options ($(GHDLAFLAGS))
+    GHDLRFLAGS   -               GHDL simulation options ($(GHDLRFLAGS))
+    GHDLRUNOPTS  -               GHDL RUNOPTS options ($(GHDLRUNOPTS))
+    GUI          yes|no          use Graphical User Interface ($(GUI))
+    MODE         work|dirname    default target library ($(MODE))
+    SIM          ghdl|vsim|xsim  simulation toolchain ($(SIM))
+    SKIP         -               UNITs to ignore for compilation ($(SKIP))
+    V            0|1             verbosity level ($(V))
+    VCOMFLAGS    -               Modelsim analysis options ($(VCOMFLAGS))
+    VSIMFLAGS    -               Modelsim simulation options ($(VSIMFLAGS))
+    XVHDLFLAGS   -               Vivado analysis options ($(XVHDLFLAGS))
+    XELABFLAGS   -               Vivado elaboration options ($(XELABFLAGS))
+    XSIMFLAGS    -               Vivado simulation options ($(XSIMFLAGS))
 
 Goals:
     help                    this help (default goal)
@@ -132,8 +148,11 @@ help::
 	@printf '%s\n' "$$HELP_message"
 
 define LONG_HELP_message
-This Makefile is for GNU make only and uses conventions; if your project is not
-compatible with the conventions, please do not use this Makefile.
+This Makefile is for GNU make only and relies on conventions; if your make is
+not GNU make or your project is not compatible with the conventions, please do
+not use this Makefile.
+
+The `vhdl` sub-directory contains some VHDL source files for testing.
 
 1. The directory containing this Makefile is the `TOP` directory. All make
    commands must be launched from `TOP`:
@@ -145,58 +164,21 @@ compatible with the conventions, please do not use this Makefile.
         make -C TOP ...
 
 2. Source files are considered as indivisible units. They must be stored in the
-   `TOP` directory or its subdirectories and named `UNIT.vhd` where `UNIT` is
+   `TOP` directory or its sub-directories and named `UNIT.vhd` where `UNIT` is
    any combination of alphanumeric characters, plus underscores (no spaces or tabs,
    for instance). The "name" of a unit is the basename of its source file
    without the `.vhd` extension. Example: the name of unit
-   `TOP/core/version.vhd` is `version`.
+   `TOP/tests/cooley.vhd` is `cooley`.
 
 3. Each unit has a default target library: `work` if `MODE=work`, or the name
    of the directory of the unit if `MODE=dirname`. Target libraries are
    automatically created if they don't exist.
 
 4. Unit names must be unique. It is not possible to have units
-   `TOP/core/version.vhd` and `TOP/interconnect/version.vhd`, even if
-   `MODE=dirname` and their target libraries are different.
+   `TOP/common/version.vhd` and `TOP/tests/version.vhd`, even if `MODE=dirname`
+   and their target libraries are different.
 
-5. `make UNIT.sim` simulates entity `UNIT` defined in file `UNIT.vhd`. If you
-   want to use this Makefile to launch simulations, name the source file of
-   your simulation environment according its entity name. Example: if the
-   entity of a simulation environment is `arbiter_bench`, name its source file
-   `arbiter_bench.vhd` and launch the simulation with:
-
-        make arbiter_bench.sim [VAR=VALUE...]
-
-   Note: the simulations are launched from the `DIR` temporary build directory.
-   It can matter if, for instance, a simulation reads or writes data files.
-   With GHDL and `GUI=yes` the waveforms file is created in `DIR`.
-
-6. Inter-unit dependencies must be declared in text files with the `.mk`
-   extension and stored in `TOP` or its subdirectories. The dependency syntax is:
-
-        UNIT [UNIT...]: UNIT [UNIT...]
-
-   where the left-hand side units depend on the right-hand side units. Example: if
-   `mmu.vhd` and `cpu.vhd` depend on `icache.vhd` and `dcache.vhd` (that is, if
-   `icache.vhd` and `dcache.vhd` must be compiled before `mmu.vhd` and
-   `cpu.vhd`), add the following to a `.mk` file somewhere under `TOP`:
-
-        mmu cpu: icache dcache
-
-   The subdirectory in which a `.mk` file is stored does not matter.
-
-   Note: the letter case matters in dependency rules: if a unit is `CPU.vhd`,
-   its name is `CPU` and the dependency rules must use `CPU`, not `cpu` or
-   `Cpu`.
-
-7. A target library other than the default can be specified on a per-unit basis
-   using `UNIT-lib` variables. Example: if `MODE=dirname` and
-   `TOP/core/utils.vhd` must be compiled in library `common` instead of the
-   default `core`, add the following to a `.mk` file somewhere under `TOP`:
-
-        utils-lib := common
-
-8. If there is a file named `config` in `TOP`, it is included before anything else.
+5. If there is a file named `config` in `TOP`, it is included before anything else.
    It can be used to set configuration variables to other values than the default.
    Example of `TOP/config` file:
 
@@ -211,17 +193,55 @@ compatible with the conventions, please do not use this Makefile.
    `TOP/config`. Example to temporarily disable the GUI for a specific
    simulation:
 
-        make arbiter_bench.sim GUI=no
+        make cooley_sim.sim GUI=no
 
-   If you know how to use GNU make you can add other make constructs to
-   `TOP/config` (or to `.mk` files). Example if the simulation of
-   `arbiter_bench` depends on data file `arbiter_bench.txt` generated by the
-   `TOP/arbiter/bench.sh` script, you can add the following to `TOP/config` or
-   to `TOP/arbiter/arbiter.mk`:
+6. Simulations can be launched with `make UNIT.sim` to simulate entity `UNIT`
+   defined in file `UNIT.vhd`. Example: if unit `TOP/tests/cooley_sim.vhd`
+   defines entity `cooley_sim` a simulation can be launched with:
 
-        arbiter_bench.sim: $$(DIR)/arbiter_bench.txt
-        $$(DIR)/arbiter_bench.txt: $$(TOP)/arbiter/bench.sh
-                $$< > $$@
+        make cooley_sim.sim [VAR=VALUE...]
+
+   Note: the simulations are launched from the `DIR` temporary build directory.
+   It can matter if, for instance, a simulation reads or writes data files.
+
+   Note: GHDL has no GUI; instead, with GHDL and `GUI=yes`, a `DIR/UNIT.ghw`
+   waveform file is generated for post-simulation visualization with, e.g.,
+   GTKWave.
+
+7. Inter-unit dependencies must be declared in text files with the `.mk`
+   extension stored in `TOP` or its sub-directories. The dependency syntax is:
+
+        UNIT [UNIT...]: UNIT [UNIT...]
+
+   where the left-hand side units depend on the right-hand side units. Example:
+   if `cooley_sim.vhd` depends on `rnd_pkg.vhd` and `cooley.vhd` (that is, if
+   `rnd_pkg.vhd` and `cooley.vhd` must be compiled before `cooley_sim.vhd`), the
+   following can be added to a `.mk` file somewhere under `TOP`:
+
+        cooley_sim: rnd_pkg cooley
+
+   The sub-directory in which a `.mk` file is stored does not matter but the
+   letter case matters in dependency rules: if a unit is `cooley.vhd`, its name
+   is `cooley` and the dependency rules must use `cooley`, not `Cooley` or
+   `COOLEY`.
+
+   `.mk` files can also specify per-unit target libraries other than the
+   defaults using `UNIT-lib` variables. Example: if `MODE=dirname` and
+   `TOP/common/rnd_pkg.vhd` must be compiled in library `tests` instead of the
+   default `common`, the following can be added to a `.mk` file somewhere under
+   `TOP`:
+
+        rnd_pkg-lib := tests
+
+Other GNU make statements can be added to `.mk` files. Example if the GHDL
+simulation of `cooley_sim` depends on data file `cooley.txt` generated by shell
+script `TOP/tests/cooley.sh`, and generic parameter `n` must be set to
+`100000`, the following can be added to, e.g., `TOP/tests/cooley.mk`:
+
+    cooley_sim.sim: GHDLRUNOPTS += -gn=100000
+    cooley_sim.sim: $$(DIR)/cooley.txt
+    $$(DIR)/cooley.txt: $$(TOP)/tests/cooley.sh
+            $$< > $$@
 endef
 export LONG_HELP_message
 
@@ -237,8 +257,10 @@ define INTRO_message
 
 ## Quick start
 
-Drop this Makefile in the root directory of your VHDL project and always use the `.vhd` extension for your source files.
-From the root directory of your VHDL project just type `make` to print the short help.
+Drop this Makefile in the root directory of your VHDL project and always use
+the `.vhd` extension for your source files. From the root directory of your
+VHDL project type `make` to print the short help or `make long-help` for the
+complete help.
 endef
 export INTRO_message
 
